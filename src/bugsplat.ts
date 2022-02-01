@@ -1,6 +1,10 @@
 import fetchPonyfill from "fetch-ponyfill";
 import { BugSplatOptions } from "./bugsplat-options";
-import { BugSplatResponse } from "./bugsplat-response";
+import {
+  BugSplatResponse,
+  CrashResponse,
+  validateCrashResponse,
+} from "./bugsplat-response";
 import FormData from "form-data";
 
 export class BugSplat {
@@ -59,6 +63,14 @@ export class BugSplat {
     console.log("BugSplat POST status code:", response.status);
     console.log("BugSplat POST response body:", json);
 
+    if (!validateCrashResponse(json)) {
+      return this._createReturnValue(
+        new Error("BugSplat Error: Invalid response received"),
+        json,
+        errorToPost
+      );
+    }
+
     if (response.status === 400) {
       return this._createReturnValue(
         new Error("BugSplat Error: Bad request"),
@@ -106,7 +118,7 @@ export class BugSplat {
 
   private _createReturnValue(
     error: Error | null,
-    response: any,
+    response: CrashResponse,
     original: Error | string
   ): BugSplatResponse {
     return {

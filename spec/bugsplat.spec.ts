@@ -10,14 +10,20 @@ describe("BugSplat", function () {
   let bugsplat;
   let appendSpy;
   let fakeFormData;
-  let fakeSuccessReponseBody;
+  let fakeSuccessResponseBody;
 
   beforeEach(() => {
     appendSpy = jasmine.createSpy();
     fakeFormData = { append: appendSpy, toString: () => "BugSplat rocks!" };
-    fakeSuccessReponseBody = {
+    fakeSuccessResponseBody = {
       status: expectedStatus,
-      json: async () => ({ crash_id: expectedCrashId }),
+      json: async () => ({
+        status: "success",
+        current_server_time: 1,
+        message: "BugSplat rocks!",
+        url: "bugsplat.rocks/yes-its-true",
+        crash_id: expectedCrashId,
+      }),
       ok: true,
     };
     bugsplat = new BugSplat(database, appName, appVersion);
@@ -30,7 +36,7 @@ describe("BugSplat", function () {
     const value = "🐶";
     const options = key;
     const additionalFormDataParams = [{ key, value, options }];
-    bugsplat._fetch.and.returnValue(fakeSuccessReponseBody);
+    bugsplat._fetch.and.returnValue(fakeSuccessResponseBody);
 
     await bugsplat.post(new Error("BugSplat!"), { additionalFormDataParams });
 
@@ -112,7 +118,7 @@ describe("BugSplat", function () {
 
   it("should append callstack to post body", async () => {
     const expectedError = new Error("BugSplat!");
-    bugsplat._fetch.and.returnValue(fakeSuccessReponseBody);
+    bugsplat._fetch.and.returnValue(fakeSuccessResponseBody);
 
     await bugsplat.post(expectedError, {});
 
@@ -121,7 +127,7 @@ describe("BugSplat", function () {
 
   it("should create a stack if none was provided", async () => {
     const expectedError = "Error without a stack!";
-    bugsplat._fetch.and.returnValue(fakeSuccessReponseBody);
+    bugsplat._fetch.and.returnValue(fakeSuccessResponseBody);
 
     await bugsplat.post(expectedError, {});
 
@@ -139,7 +145,7 @@ describe("BugSplat", function () {
       stack:
         "handlError/<@https://app.bugsplat.com/v2/main-es2015.32bd4307e375ff22d168.js:1:1413880>",
     };
-    bugsplat._fetch.and.returnValue(fakeSuccessReponseBody);
+    bugsplat._fetch.and.returnValue(fakeSuccessResponseBody);
 
     await bugsplat.post(error, {});
 
@@ -152,7 +158,7 @@ describe("BugSplat", function () {
   });
 
   it("should call fetch url containing database", async () => {
-    bugsplat._fetch.and.returnValue(fakeSuccessReponseBody);
+    bugsplat._fetch.and.returnValue(fakeSuccessResponseBody);
 
     await bugsplat.post(new Error("BugSplat!"));
 
@@ -163,7 +169,7 @@ describe("BugSplat", function () {
   });
 
   it("should call fetch with method and body", async () => {
-    bugsplat._fetch.and.returnValue(fakeSuccessReponseBody);
+    bugsplat._fetch.and.returnValue(fakeSuccessResponseBody);
 
     await bugsplat.post(new Error("BugSplat!"));
 
@@ -178,12 +184,23 @@ describe("BugSplat", function () {
 
   it("should return response body and original error if BugSplat POST returns 200", async () => {
     const errorToPost = new Error("BugSplat!");
-    bugsplat._fetch.and.returnValue(fakeSuccessReponseBody);
+    bugsplat._fetch.and.returnValue(fakeSuccessResponseBody);
 
     const result = await bugsplat.post(errorToPost, {});
 
     expect(result.error).toBeFalsy();
     expect(result.response.crash_id).toEqual(expectedCrashId);
+    expect(result.original.message).toEqual(errorToPost.message);
+  });
+
+  it("should return BugSplat error, response body and original error if BugSplat POST returns an invalid CrashResponse", async () => {
+    const errorToPost = new Error("BugSplat!");
+    bugsplat._fetch.and.returnValue({ status: 200, json: async () => ({}) });
+
+    const result = await bugsplat.post(errorToPost, {});
+    expect(result.error.message).toEqual(
+      "BugSplat Error: Invalid response received"
+    );
     expect(result.original.message).toEqual(errorToPost.message);
   });
 
@@ -226,7 +243,7 @@ describe("BugSplat", function () {
     propertyValue,
     propertySetter = (value) => {}
   ) {
-    bugsplat._fetch.and.returnValue(fakeSuccessReponseBody);
+    bugsplat._fetch.and.returnValue(fakeSuccessResponseBody);
 
     propertySetter(propertyValue);
     await bugsplat.post(new Error("BugSplat!"), {});
@@ -240,7 +257,7 @@ describe("BugSplat", function () {
     propertyName,
     propertyValue
   ) {
-    bugsplat._fetch.and.returnValue(fakeSuccessReponseBody);
+    bugsplat._fetch.and.returnValue(fakeSuccessResponseBody);
 
     await bugsplat.post(new Error("BugSplat!"), postOptions);
 
